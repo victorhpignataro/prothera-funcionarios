@@ -80,8 +80,8 @@ public class Principal {
 
   public static void imprimirFuncionariosAniversarioEm(List<Month> meses) {
     System.out.println("Funcionários com aniversários em " + meses.stream().map(mes -> {
-      return mes.getValue();
-    }).collect(Collectors.toList()));
+      return String.valueOf(mes.getValue());
+    }).collect(Collectors.joining(", ")));
 
     listaFuncionarios.forEach((Funcionario funcionario) -> {
       meses.forEach(
