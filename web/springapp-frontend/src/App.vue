@@ -9,8 +9,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  LucideArrowDownAZ,
   LucideBanknoteArrowUp,
   LucideCheck,
+  LucideEraser,
   LucideFilter,
   LucideListChevronsDownUp,
   LucideTrash,
@@ -22,15 +24,10 @@ import Button from "./components/ui/button/Button.vue";
 import CardDescription from "./components/ui/card/CardDescription.vue";
 import Input from "./components/ui/input/Input.vue";
 import Popover from "./components/ui/popover/Popover.vue";
-import PopoverTrigger from "./components/ui/popover/PopoverTrigger.vue";
 import PopoverContent from "./components/ui/popover/PopoverContent.vue";
-
-type Funcionario = {
-  nome: string;
-  dataNascimento: string;
-  salario: number;
-  funcao: string;
-};
+import PopoverTrigger from "./components/ui/popover/PopoverTrigger.vue";
+import Toggle from "./components/ui/toggle/Toggle.vue";
+import { MESES, SALARIO_MINIMO } from "./utils.ts";
 
 const funcionarios = ref<Funcionario[]>([]);
 const showAumentoInput = ref<Boolean>(false);
@@ -42,8 +39,27 @@ const porcentagemAumento = ref<Number>(0);
 
 const sumSalarios = ref<Number>(0);
 
-const fetchData = () =>
-  fetch("/api/funcionario")
+const SELECTED_MESES_DEFAULT = {};
+
+Object.keys(MESES).forEach((mes) => {
+  SELECTED_MESES_DEFAULT[MESES[mes].id] = false;
+});
+
+const selectedMeses = ref<any>(
+  JSON.parse(JSON.stringify(SELECTED_MESES_DEFAULT)),
+);
+
+const toggleSortByName = ref(false);
+
+const fetchData = () => {
+  const queryParams = new URLSearchParams({
+    arrMeses: Object.keys(selectedMeses.value).filter(
+      (key) => !!selectedMeses.value[key],
+    ),
+    sortNames: toggleSortByName.value,
+  });
+
+  fetch(`/api/funcionario?${queryParams.toString()}`)
     .then((res) => {
       return res.json();
     })
@@ -53,12 +69,12 @@ const fetchData = () =>
         (res) => res.json(),
       );
     });
-
+};
 fetchData();
 
 const renderDate = (dataNascimento: string) => {
   return format(
-    (parse(dataNascimento, "yyyy-MM-dd"), dataNascimento, new Date()),
+    parse(dataNascimento, "yyyy-MM-dd", dataNascimento, new Date()),
     "dd/MM/yyyy",
   );
 };
@@ -70,6 +86,12 @@ const renderCurrency = (moeda: string) => {
   }).format(moeda);
   return formatted;
 };
+
+const renderSalariosMinimos = (salario) => {
+  const divisao = Math.trunc((salario / SALARIO_MINIMO) * 100) / 100;
+  return divisao;
+};
+
 const removeUserByName = (name: String) => {
   fetch(`api/funcionario/${name}`, {
     method: "DELETE",
@@ -108,6 +130,11 @@ const onAgruparPorFuncao = () => {
       });
   }
 };
+
+const clearMonthFilter = () => {
+  selectedMeses.value = JSON.parse(JSON.stringify(SELECTED_MESES_DEFAULT));
+  fetchData();
+};
 </script>
 
 <template>
@@ -117,7 +144,7 @@ const onAgruparPorFuncao = () => {
         <section>
           Controle de Funcionários
           <CardDescription>
-            {{ funcionarios.length }} funcionários registrados
+            {{ funcionarios.length }} funcionários
           </CardDescription>
         </section>
         <section>
@@ -146,22 +173,58 @@ const onAgruparPorFuncao = () => {
         </section>
       </CardHeader>
       <CardContent class="flex flex-col overflow-hidden min-h-0">
+        <div class="flex w-full justify-end mt-4">
+          <div>Total Salários: {{ renderCurrency(sumSalarios) }}</div>
+        </div>
         <Table class="flex-1 min-h-0 overflow-auto" v-if="!showPorFuncao">
           <TableHeader class="bg-card sticky top-0">
             <TableRow>
-              <TableHead> Nome </TableHead>
-              <TableHead class="flex items-center gap-2">
-                Data de Nascimento
-                <Popover>
-                  <PopoverTrigger>
-                    <Button size="xs" variant="ghost">
-                      <LucideFilter size="12"></LucideFilter>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent> </PopoverContent>
-                </Popover>
+              <TableHead>
+                <div class="flex items-center gap-2">
+                  Nome
+                  {{ toggleSortByName }}
+                  <Toggle
+                    variant="ghost"
+                    v-model="toggleSortByName"
+                    @update:model-value="fetchData()"
+                  >
+                    <LucideArrowDownAZ size="12"></LucideArrowDownAZ>
+                  </Toggle>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div class="flex items-center gap-2">
+                  Data de Nascimento
+                  <Popover>
+                    <PopoverTrigger>
+                      <Button size="xs" variant="ghost">
+                        <LucideFilter size="12"></LucideFilter>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent>
+                      <Toggle
+                        :aria-label="mes.id"
+                        v-for="mes in MESES"
+                        :key="mes.id"
+                        v-model="selectedMeses[mes.id]"
+                      >
+                        {{ mes.label }}
+                      </Toggle>
+                      <div class="flex justify-end gap-2">
+                        <Button variant="outline" @click="clearMonthFilter()">
+                          <LucideEraser></LucideEraser>
+                          Limpar
+                        </Button>
+                        <Button @click="fetchData()">
+                          <LucideFilter></LucideFilter> Filtrar
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </TableHead>
               <TableHead> Salário </TableHead>
+              <TableHead> Salários Mínimos </TableHead>
               <TableHead> Função </TableHead>
               <TableHead> </TableHead>
             </TableRow>
@@ -174,6 +237,9 @@ const onAgruparPorFuncao = () => {
               </TableCell>
               <TableCell>
                 {{ renderCurrency(funcionario.salario) }}
+              </TableCell>
+              <TableCell>
+                {{ renderSalariosMinimos(funcionario.salario) }}
               </TableCell>
               <TableCell> {{ funcionario.funcao }} </TableCell>
               <TableCell>
@@ -224,9 +290,6 @@ const onAgruparPorFuncao = () => {
             </TableRow>
           </TableBody>
         </Table>
-        <div class="flex w-full justify-end mt-4">
-          <div>Total Salários: {{ renderCurrency(sumSalarios) }}</div>
-        </div>
       </CardContent>
     </Card>
   </main>

@@ -1,9 +1,13 @@
 package com.prothera.springapp.Service;
 
 import java.math.BigDecimal;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 
@@ -14,7 +18,6 @@ import jakarta.annotation.PostConstruct;
 
 @Service
 public class FuncionarioServiceImpl implements FuncionarioService {
-  private static final BigDecimal SALARIO_MINIMO = BigDecimal.valueOf(1212.00);
   private static Boolean inicializado = false;
 
   private static ArrayList<Funcionario> listaFuncionarios = new ArrayList<Funcionario>();
@@ -65,8 +68,26 @@ public class FuncionarioServiceImpl implements FuncionarioService {
   }
 
   @Override
-  public ArrayList<Funcionario> findAllFuncionarios() {
+  public List<Funcionario> findAllFuncionarios() {
     return listaFuncionarios;
+  }
+
+  public List<Funcionario> findFiltrarESortear(List<Integer> meses, Boolean sortNames) {
+    List<Month> mesesMap = meses.stream().map(Month::of).collect(Collectors.toList());
+
+    Stream<Funcionario> ret = listaFuncionarios.stream();
+    if (mesesMap.size() > 0) {
+      ret = ret
+          .filter(funcionario -> mesesMap.contains(funcionario.getDataNascimento().getMonth()));
+    }
+
+    if (sortNames) {
+      ret = ret.sorted((fA, fB) -> {
+        return fA.getNome().compareToIgnoreCase(fB.getNome());
+      });
+    }
+
+    return ret.collect(Collectors.toList());
   }
 
   @Override
@@ -91,13 +112,13 @@ public class FuncionarioServiceImpl implements FuncionarioService {
   }
 
   @Override
-  public HashMap<String, ArrayList<Funcionario>> groupByFuncao() {
+  public HashMap<String, List<Funcionario>> groupByFuncao() {
 
-    HashMap<String, ArrayList<Funcionario>> funcionariosPorFuncao = new HashMap<String, ArrayList<Funcionario>>();
+    HashMap<String, List<Funcionario>> funcionariosPorFuncao = new HashMap<String, List<Funcionario>>();
     listaFuncionarios.forEach((Funcionario funcionarioI) -> {
       funcionariosPorFuncao.merge(funcionarioI.getFuncao(), new ArrayList<Funcionario>(Arrays.asList(funcionarioI)),
-          (ArrayList<Funcionario> fA, ArrayList<Funcionario> fB) -> {
-            ArrayList<Funcionario> result = new ArrayList<Funcionario>(fA);
+          (List<Funcionario> fA, List<Funcionario> fB) -> {
+            List<Funcionario> result = new ArrayList<Funcionario>(fA);
             result.add(fB.get(0));
             return result;
           });
